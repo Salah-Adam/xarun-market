@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+import {adapter} from './postgres.mjs';
+import '../build.mjs';
+const worker=(await import('../dist/server/index.js')).default;
+test('PostgreSQL verification, reset, token expiry, ownership and Brevo failure recovery',async()=>{
+ const pg=new PGlite();
+ for(const file of fs.readdirSync('drizzle').filter(name=>name.endsWith('.sql')).sort())await pg.exec(fs.readFileSync('drizzle/'+file,'utf8'));
+ const DB={...adapter(pg),transaction:action=>pg.transaction(client=>action(adapter(client)))};
+ const messages=[];
+ const env={DB,ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:'admin-only-test-password',APP_URL:'https://store.test',BREVO_API_KEY:'test-key',BREVO_SENDER_EMAIL:'store@example.com',mailFetch:async(url,options)=>{
+  assert.equal(url,'https://api.brevo.com/v3/smtp/email');assert.equal(options.headers['api-key'],'test-key');messages.push(JSON.parse(options.body));return new Response('{}',{status:201});
+ }};
+ async function request(path,body,cookie=''){
+  return worker.fetch(new Request('https://store.test'+path,{method:body?'POST':'GET',headers:{origin:'https://store.test',cookie},body:body?JSON.stringify(body):undefined}),env);
+ }
+ const latestToken=()=>new URLSearchParams(messages.at(-1).textContent.match(/https:\/\/store.test\/account#[^\s]+/)[0].split('#')[1]).get('token');
+ const email='buyer@gmail.com',password='customer-test-password';
+ assert.equal((await request('/api/auth/signup',{email})).status,200);
+ assert.equal((await request('/api/account/orders')).status,401);
+ let token=latestToken();
+ assert.equal((await request('/api/auth/verify',{token,password})).status,200);
+ assert.equal((await request('/api/auth/verify',{token,password})).status,400);
+ const login=await request('/api/auth/login',{email,password});
+ assert.equal(login.status,200);const cookie=login.headers.get('set-cookie').split(';')[0];
+ const order={id:'XM-'+crypto.randomUUID().toUpperCase(),items:[[0,2]],customer:['Buyer','123','City','Street'],method:'Zaad'};
+ assert.equal((await request('/api/orders',order,cookie)).status,200);
+ assert.equal((await request('/api/orders',order,cookie)).status,200);
+ assert.equal((await (await request('/api/account/orders',null,cookie)).json()).length,1);
+ const admin=await request('/api/admin/login',{email:env.ADMIN_EMAIL,password:env.ADMIN_PASSWORD});
+ assert.equal(admin.status,200);
+ assert.equal((await request('/api/admin/orders',null,cookie)).status,401);
+ await request('/api/auth/forgot',{email});token=latestToken();
+ assert.equal((await request('/api/auth/reset',{token,password:'new-customer-password'})).status,200);
+ assert.equal((await request('/api/account/orders',null,cookie)).status,401);
+ assert.equal((await request('/api/auth/login',{email,password})).status,401);
+ assert.equal((await request('/api/auth/login',{email,password:'new-customer-password'})).status,200);
+ assert.equal((await request('/api/auth/reset',{token,password})).status,400);
+ await request('/api/auth/forgot',{email});token=latestToken();
+ await pg.query('UPDATE email_tokens SET expires=0');
+ assert.equal((await request('/api/auth/reset',{token,password})).status,400);
+ env.mailFetch=async()=>new Response('{}',{status:503});
+ assert.equal((await request('/api/auth/signup',{email:'retry@gmail.com'})).status,503);
+ assert.equal((await pg.query("SELECT * FROM email_tokens WHERE customer_id=(SELECT id FROM customers WHERE email='retry@gmail.com')")).rows.length,0);
+ const before=messages.length;
+ assert.equal((await request('/api/auth/forgot',{email:'missing@gmail.com'})).status,200);
+ assert.equal(messages.length,before);
+ await pg.close();
+});

@@ -1,0 +1,14 @@
+[build]
+base = "xarun-market"
+command = "npm run build"
+publish = "site"
+
+[functions]
+directory = "netlify/functions"
+node_bundler = "esbuild"
+
+[[redirects]]
+from = "/*"
+to = "/.netlify/functions/app"
+status = 200
+force = true

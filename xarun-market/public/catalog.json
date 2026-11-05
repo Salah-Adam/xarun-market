@@ -1,0 +1,107 @@
+[
+  [
+    "Cotton everyday tee",
+    14,
+    "Soft cotton with an easy, relaxed fit.",
+    "tops",
+    "tshirt"
+  ],
+  [
+    "Canvas tote",
+    18,
+    "A roomy carryall for market days.",
+    "womens-bags",
+    "blue-womens-handbag"
+  ],
+  [
+    "Classic watch",
+    36,
+    "A simple everyday timepiece.",
+    "mens-watches",
+    "brown-leather-belt-watch"
+  ],
+  [
+    "Leather sandals",
+    22,
+    "Light sandals for warm afternoons.",
+    "mens-shoes",
+    "sports-shoes"
+  ],
+  [
+    "Summer dress",
+    32,
+    "A breezy dress for sunny days.",
+    "womens-dresses",
+    "black-women's-gown"
+  ],
+  [
+    "Wireless headphones",
+    48,
+    "Over-ear listening for study and travel.",
+    "mobile-accessories",
+    "amazon-echo-plus"
+  ],
+  [
+    "Bluetooth speaker",
+    29,
+    "Compact sound for your desk.",
+    "mobile-accessories",
+    "portable-speaker"
+  ],
+  [
+    "Wireless mouse",
+    12,
+    "A compact mouse for daily work.",
+    "mobile-accessories",
+    "wireless-mouse"
+  ],
+  [
+    "Power bank",
+    24,
+    "Portable charging for days away from home.",
+    "mobile-accessories",
+    "power-bank"
+  ],
+  [
+    "Charging cable",
+    6,
+    "A spare cable for your desk or bag.",
+    "mobile-accessories",
+    "apple-iphone-charger"
+  ],
+  [
+    "Basmati rice",
+    8,
+    "A 2 kg bag of fragrant rice for bariis.",
+    "groceries",
+    "rice"
+  ],
+  [
+    "Cooking oil",
+    5,
+    "A pantry staple for frying and sautéing.",
+    "groceries",
+    "cooking-oil"
+  ],
+  [
+    "Fresh bananas",
+    3,
+    "One bunch of ripe bananas.",
+    "groceries",
+    "banana"
+  ],
+  [
+    "Fresh mangoes",
+    4,
+    "Sweet mangoes for juice or a snack.",
+    "groceries",
+    "kiwi"
+  ],
+  [
+    "Milk",
+    2,
+    "One litre of milk for shaah or breakfast.",
+    "groceries",
+    "milk"
+  ]
+]
