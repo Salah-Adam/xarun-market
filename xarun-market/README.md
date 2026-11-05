@@ -35,7 +35,7 @@ Customers select Create account at /account and enter their email. Brevo sends a
 
 Forgot password sends a reset link. Resend verification email helps customers who missed their first email. Links expire after 30 minutes and work once. Saving a password invalidates existing customer sessions. Passwords are salted and hashed, sessions use HttpOnly cookies, and login/email requests are rate limited.
 
-Admin signs in at /admin using the environment credentials. Admin password changes are made through the environment settings.
+Customers and admins both sign in at /account. The server recognizes the configured admin email and password and sends the admin to /admin; customers see their orders. Opening /admin without an admin session returns to the shared sign-in page. Admin password changes are made through the environment settings.
 
 ## Deploy to Netlify
 

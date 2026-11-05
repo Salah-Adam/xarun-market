@@ -105,20 +105,7 @@ async function init() {
   try {
     const state = await call('state');
     if (state.active) { await dashboard(); return; }
-    message.textContent = state.configured ? 'Enter your password to manage the store.' :
-      'Admin credentials need to be configured on the server.';
-    workspace.innerHTML = '<form class="loginform"><label>Email<input type="email" name="email" autocomplete="username" required></label><label>Admin password<input type="password" minlength="12" ' +
-      'maxlength="128" required autocomplete="' + 'current-password' +
-      '"></label><button>' + 'Sign in as admin' + '</button></form>';
-    workspace.querySelector('form').onsubmit = async event => {
-      event.preventDefault();
-      const button = event.target.querySelector('button');
-      button.disabled = true;
-      try {
-        await call('login', { password: event.target.querySelector('input[type=password]').value, email: event.target.querySelector('input[type=email]').value });
-        await dashboard();
-      } catch (error) { message.textContent = error.message; button.disabled = false; }
-    };
+    location.replace('/account');
   } catch (error) {
     message.textContent = error.message;
 

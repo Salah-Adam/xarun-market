@@ -29,8 +29,16 @@ test('PostgreSQL verification, reset, token expiry, ownership and Brevo failure 
  assert.equal((await request('/api/orders',order,cookie)).status,200);
  assert.equal((await request('/api/orders',order,cookie)).status,200);
  assert.equal((await (await request('/api/account/orders',null,cookie)).json()).length,1);
- const admin=await request('/api/admin/login',{email:env.ADMIN_EMAIL,password:env.ADMIN_PASSWORD});
+ const admin=await request('/api/auth/login',{email:env.ADMIN_EMAIL,password:env.ADMIN_PASSWORD});
  assert.equal(admin.status,200);
+ assert.equal((await admin.json()).role,'admin');
+ const adminCookie=admin.headers.getSetCookie().find(c=>c.startsWith('xm_admin=')).split(';')[0];
+ assert.equal((await (await request('/api/account',null,adminCookie)).json()).role,'admin');
+ assert.equal((await request('/api/admin/orders',null,adminCookie)).status,200);
+ assert.equal((await request('/api/auth/login',{email:env.ADMIN_EMAIL,password:'incorrect-password'})).status,401);
+ assert.equal((await (await request('/api/account',null,cookie)).json()).role,'customer');
+ assert.equal((await request('/api/auth/logout',{},adminCookie)).status,200);
+ assert.equal((await request('/api/admin/orders',null,adminCookie)).status,401);
  assert.equal((await request('/api/admin/orders',null,cookie)).status,401);
  await request('/api/auth/forgot',{email});token=latestToken();
  assert.equal((await request('/api/auth/reset',{token,password:'new-customer-password'})).status,200);

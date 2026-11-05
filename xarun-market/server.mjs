@@ -15,7 +15,11 @@ async function api(request,env,path){
  const db=env.DB;
  const customerSession=await session(request,db,'customer');
  const userId=customerSession?.user_id;
- if(path==='/api/account')return json({signedIn:!!userId});
+ if(path==='/api/account'){
+  const admin=await session(request,db,'admin');
+  const isAdmin=!!env.ADMIN_EMAIL&&typeof env.ADMIN_PASSWORD==='string'&&env.ADMIN_PASSWORD.length>=12&&admin?.user_id===await sha(env.ADMIN_EMAIL.toLowerCase()+'|'+env.ADMIN_PASSWORD);
+  return json({signedIn:!!userId||isAdmin,role:isAdmin?'admin':userId?'customer':null});
+ }
  if(path==='/api/account/orders'){
   if(!userId)return fail('Sign in to view your orders.',401);
   return json((await db.prepare('SELECT id,created,items,total,method,status FROM orders WHERE user_id=? ORDER BY created DESC,id DESC').bind(userId).all()).results);
@@ -65,7 +69,7 @@ async function api(request,env,path){
 export default {async fetch(request,env){
  const path=new URL(request.url).pathname;
  if(path.startsWith('/api/')){try{return await api(request,env,path)}catch{return fail('Request failed. Please try again.',500)}}
- const asset=assets[path];return asset?new Response(asset[1],{headers:{'Content-Type':asset[0],'Referrer-Policy':'no-referrer','Cache-Control':'no-store'}}):new Response('Not found',{status:404});
+ const asset=assets[path];return asset?new Response(asset[2]==='base64'?Uint8Array.from(atob(asset[1]),c=>c.charCodeAt(0)):asset[1],{headers:{'Content-Type':asset[0],'Referrer-Policy':'no-referrer','Cache-Control':asset[2]==='base64'?'public, max-age=3600':'no-store'}}):new Response('Not found',{status:404});
 }};
 async function sha(text){
  return hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)));
@@ -92,7 +96,11 @@ async function createSession(request,db,role,userId,version=0){
  const token=hex(crypto.getRandomValues(new Uint8Array(32)));
  await db.prepare('DELETE FROM auth_sessions WHERE expires<=?').bind(Date.now()).run();
  await db.prepare('INSERT INTO auth_sessions(token,user_id,role,expires,credential_version) VALUES(?,?,?,?,?)').bind(await sha(token),userId,role,Date.now()+86400000,version).run();
- return json({ok:true},200,{'set-cookie':sessionCookie(request,role,token,86400)});
+ const otherRole=role==='admin'?'customer':'admin';
+ await endSession(request,db,otherRole);
+ const response=json({ok:true,role},200,{'set-cookie':sessionCookie(request,role,token,86400)});
+ response.headers.append('set-cookie',sessionCookie(request,otherRole,'',0));
+ return response;
 }
 async function endSession(request,db,role){
  await db.prepare('DELETE FROM auth_sessions WHERE token=? AND role=?').bind(await sha(tokenFrom(request,role)),role).run();
@@ -162,7 +170,12 @@ async function finishEmailAction(request,env,input,purpose){
 async function customerAuth(request,env,path,input){
  if(request.method!=='POST')return fail('Method not allowed',405);
  const db=env.DB;
- if(path==='/api/auth/logout')return endSession(request,db,'customer');
+ if(path==='/api/auth/logout'){
+  const response=await endSession(request,db,'customer');
+  const admin=await endSession(request,db,'admin');
+  response.headers.append('set-cookie',admin.headers.get('set-cookie'));
+  return response;
+ }
  if(path==='/api/auth/verify')return finishEmailAction(request,env,input,'verify');
  if(path==='/api/auth/reset')return finishEmailAction(request,env,input,'reset');
  if(!['/api/auth/login','/api/auth/signup','/api/auth/resend','/api/auth/forgot'].includes(path))return fail('Not found',404);
@@ -170,6 +183,12 @@ async function customerAuth(request,env,path,input){
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)return fail('Enter a valid email address.');
  if(!await allowLogin(request,db,email))return fail('Too many attempts. Try again in 15 minutes.',429);
  if(path!=='/api/auth/login'&&!mailConfigured(env))return fail('Email delivery is not configured. Contact the store owner.',503);
+ if(path==='/api/auth/login'&&email===String(env.ADMIN_EMAIL||'').toLowerCase()){
+  if(typeof env.ADMIN_PASSWORD!=='string'||env.ADMIN_PASSWORD.length<12||typeof input.password!=='string'||input.password.length<12||input.password.length>128)return fail('Incorrect email or password.',401);
+  const expected=await sha(email+'|'+env.ADMIN_PASSWORD);
+  if(!equal(await sha(email+'|'+input.password),expected))return fail('Incorrect email or password.',401);
+  return createSession(request,db,'admin',expected);
+ }
  let customer=await db.prepare('SELECT * FROM customers WHERE email=?').bind(email).first();
  if(path==='/api/auth/login'){
   if(typeof input.password!=='string'||input.password.length<12||input.password.length>128)return fail('Incorrect email or password.',401);

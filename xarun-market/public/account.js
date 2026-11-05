@@ -3,6 +3,10 @@ const escapeText=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 async function loadHistory(){
  feedback.textContent='Loading your orders…';
  try{
+  const stateResponse=await fetch('/api/account');
+  if(!stateResponse.ok)throw Error('Unable to check your account. Please try again.');
+  const state=await stateResponse.json();
+  if(state.role==='admin'){location.replace('/admin');return}
   const response=await fetch('/api/account/orders');
   if(response.status===401){
    feedback.textContent='';
@@ -36,6 +40,7 @@ function renderLogin(mode='login'){
    const response=await fetch('/api/auth/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
    const result=await response.json();if(!response.ok)throw Error(result.error);
    if(mode!=='login'){renderLogin('login');feedback.textContent=result.message;return}
+   if(result.role==='admin'){location.replace('/admin');return}
    if(new URLSearchParams(location.search).get('return')==='checkout'){location.href='/#shop';return}
    await loadHistory();
   }catch(error){feedback.textContent=error.message;button.disabled=false}
